@@ -88,18 +88,54 @@
   }
 
   .building-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .building-group {
+    background: rgba(230, 219, 184, 0.45);
+    border: 1px solid rgba(184, 134, 46, 0.45);
+    border-radius: 10px;
+    padding: 10px;
+  }
+
+  .building-heading {
+    text-align: center;
+    margin-bottom: 8px;
+  }
+
+  .building-name {
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+
+  .building-street {
+    margin-top: 2px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  .level-buttons {
     display: flex;
     justify-content: center;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 12px;
+    gap: 6px;
   }
 
   .tab-btn {
     font-family: 'Cinzel', serif;
-    font-size: 13px;
+    font-size: 12px;
     letter-spacing: 0.05em;
-    padding: 8px 18px;
+    padding: 7px 13px;
     border-radius: 20px;
     border: 1px solid var(--gold);
     background: transparent;
@@ -111,6 +147,21 @@
   .tab-btn.active {
     background: var(--gold);
     color: var(--parchment);
+  }
+
+  @media (max-width: 600px) {
+    .building-tabs {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .building-group {
+      padding: 8px;
+    }
+
+    .building-heading {
+      margin-bottom: 6px;
+    }
   }
 
   .map {
@@ -414,13 +465,29 @@
   <div class="board">
     <div class="map-title">Metro Toronto Convention Centre — Official Floor Plan</div>
     <div class="building-tabs">
-      <button class="tab-btn" data-level="100" data-building="North Building">Level 100</button>
-      <button class="tab-btn active" data-level="200" data-building="North Building">Level 200</button>
-      <button class="tab-btn" data-level="300" data-building="North Building">Level 300</button>
-      <button class="tab-btn" data-level="500" data-building="South Building">Level 500</button>
-      <button class="tab-btn" data-level="600" data-building="South Building">Level 600</button>
-      <button class="tab-btn" data-level="700" data-building="South Building">Level 700</button>
-      <button class="tab-btn" data-level="800" data-building="South Building">Level 800</button>
+      <div class="building-group">
+        <div class="building-heading">
+          <div class="building-name">North Building</div>
+          <div class="building-street">Front Street</div>
+        </div>
+        <div class="level-buttons">
+          <button class="tab-btn" data-level="100" data-building="North Building">Level 100</button>
+          <button class="tab-btn active" data-level="200" data-building="North Building">Level 200</button>
+          <button class="tab-btn" data-level="300" data-building="North Building">Level 300</button>
+        </div>
+      </div>
+      <div class="building-group">
+        <div class="building-heading">
+          <div class="building-name">South Building</div>
+          <div class="building-street">Bremner Blvd.</div>
+        </div>
+        <div class="level-buttons">
+          <button class="tab-btn" data-level="500" data-building="South Building">Level 500</button>
+          <button class="tab-btn" data-level="600" data-building="South Building">Level 600</button>
+          <button class="tab-btn" data-level="700" data-building="South Building">Level 700</button>
+          <button class="tab-btn" data-level="800" data-building="South Building">Level 800</button>
+        </div>
+      </div>
     </div>
     <div class="map hidden" id="map-level-100" data-level="100" data-building="North Building">
       <img class="floorplan" src="maps/mtcc-level-100.png" alt="MTCC Level 100 floor plan">

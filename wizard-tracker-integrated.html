@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>eBay Wizard Tracker — MTCC</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+  :root {
+    --parchment: #f3ecd8;
+    --parchment-dark: #e6dbb8;
+    --ink: #2b2416;
+    --ink-soft: #5c5236;
+    --gold: #b8862e;
+    --red: #d1453d;
+    --blue: #2f5ab8;
+    --yellow: #d4a017;
+    --green: #3f8c4a;
+    --shadow: rgba(43, 36, 22, 0.25);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+    background: radial-gradient(ellipse at top, #3a3120 0%, #1c1810 70%);
+    color: var(--ink);
+    min-height: 100vh;
+    padding: 24px 16px 60px;
+  }
+
+  .wrap {
+    max-width: 920px;
+    margin: 0 auto;
+  }
+
+  header {
+    text-align: center;
+    color: var(--parchment);
+    margin-bottom: 22px;
+  }
+
+  header .eyebrow {
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #c9b98a;
+    margin-bottom: 6px;
+  }
+
+  header h1 {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(28px, 5vw, 42px);
+    margin: 0 0 8px;
+    color: var(--parchment);
+    text-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  }
+
+  header p {
+    margin: 0;
+    font-size: 14px;
+    color: #d8cba0;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  .board {
+    background: var(--parchment);
+    border-radius: 18px;
+    padding: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(184,134,46,0.3);
+    position: relative;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 38px, rgba(184,134,46,0.05) 39px),
+      repeating-linear-gradient(90deg, transparent, transparent 38px, rgba(184,134,46,0.05) 39px);
+  }
+
+  .map-title {
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    text-align: center;
+    margin-bottom: 10px;
+  }
+
+  .building-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .tab-btn {
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    padding: 8px 18px;
+    border-radius: 20px;
+    border: 1px solid var(--gold);
+    background: transparent;
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .tab-btn.active {
+    background: var(--gold);
+    color: var(--parchment);
+  }
+
+  .map {
+    position: relative;
+    width: 100%;
+    background: #ece2c4;
+    border: 2px solid var(--gold);
+    border-radius: 10px;
+    cursor: crosshair;
+    overflow: hidden;
+  }
+
+  .map img.floorplan {
+    display: block;
+    width: 100%;
+    height: auto;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .map.hidden { display: none; }
+
+  .pin {
+    position: absolute;
+    width: 26px;
+    transform: translate(-50%, -100%);
+    cursor: pointer;
+    transition: opacity 0.4s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .pin-hat {
+    width: 26px;
+    height: 26px;
+    filter: drop-shadow(0 3px 4px rgba(0,0,0,0.4));
+  }
+
+  .pin-hat svg { width: 100%; height: 100%; display: block; }
+
+  .pin-time {
+    margin-top: 2px;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--ink);
+    background: rgba(243,236,216,0.92);
+    border: 1px solid rgba(43,36,22,0.35);
+    border-radius: 6px;
+    padding: 1px 5px;
+    white-space: nowrap;
+    pointer-events: none;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .legend {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--ink-soft);
+    font-weight: 600;
+  }
+
+  .swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    display: inline-block;
+  }
+
+  .controls {
+    margin-top: 18px;
+    text-align: center;
+    color: var(--parchment);
+    font-size: 13px;
+  }
+
+  .picker {
+    display: none;
+    justify-content: center;
+    margin-top: 12px;
+  }
+  .picker.active { display: flex; }
+
+  .form-panel {
+    background: rgba(243,236,216,0.06);
+    border: 1px solid rgba(184,134,46,0.4);
+    border-radius: 14px;
+    padding: 18px;
+    width: 100%;
+    max-width: 400px;
+    text-align: left;
+  }
+
+  .form-row {
+    margin-bottom: 16px;
+  }
+  .form-row:last-of-type {
+    margin-bottom: 0;
+  }
+
+  .form-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #d8cba0;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .color-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+
+  .color-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 3px solid rgba(255,255,255,0.3);
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+  }
+  .color-btn:hover { transform: scale(1.1); }
+  .color-btn.selected {
+    border-color: #fff;
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.4);
+  }
+
+  .text-input {
+    width: 100%;
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(184,134,46,0.5);
+    background: rgba(255,255,255,0.9);
+    color: var(--ink);
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+  }
+  .text-input:focus {
+    outline: 2px solid var(--gold);
+  }
+
+  .time-toggle {
+    display: flex;
+    gap: 8px;
+  }
+
+  .time-btn {
+    flex: 1;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(184,134,46,0.5);
+    background: transparent;
+    color: #d8cba0;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .time-btn.active {
+    background: var(--gold);
+    color: var(--parchment);
+  }
+
+  .submit-btn {
+    width: 100%;
+    margin-top: 18px;
+    padding: 11px;
+    border-radius: 20px;
+    border: none;
+    background: var(--gold);
+    color: var(--parchment);
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+  .submit-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .cancel-btn {
+    background: transparent;
+    border: 1px solid #a89568;
+    color: #d8cba0;
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-size: 12px;
+    cursor: pointer;
+    margin-top: 10px;
+  }
+
+  .sightings {
+    margin-top: 26px;
+  }
+
+  .sightings h2 {
+    font-family: 'Cinzel', serif;
+    font-size: 16px;
+    color: var(--parchment);
+    text-align: center;
+    letter-spacing: 0.05em;
+    margin-bottom: 12px;
+  }
+
+  .sighting-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 260px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .sighting-row {
+    background: rgba(243,236,216,0.08);
+    border: 1px solid rgba(184,134,46,0.35);
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--parchment);
+    font-size: 13px;
+  }
+
+  .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .sighting-row .loc {
+    flex: 1;
+    font-weight: 600;
+  }
+
+  .sighting-row .time {
+    font-size: 11px;
+    color: #b9a97a;
+  }
+
+  .empty-msg {
+    text-align: center;
+    color: #b9a97a;
+    font-size: 13px;
+    padding: 16px;
+    font-style: italic;
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--ink);
+    color: var(--parchment);
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 13px;
+    opacity: 0;
+    transition: all 0.3s ease;
+    pointer-events: none;
+    z-index: 100;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  footer {
+    text-align: center;
+    color: #8c7f5a;
+    font-size: 11px;
+    margin-top: 20px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Fly, You Fans</div>
+    <h1>eBay Wizard Tracker</h1>
+    <p>Tap the map where you spotted a wizard. Sightings fade as they get stale.</p>
+  </header>
+
+  <div class="board">
+    <div class="map-title">Metro Toronto Convention Centre — Official Floor Plan</div>
+    <div class="building-tabs">
+      <button class="tab-btn active" data-building="South Building">South Building</button>
+      <button class="tab-btn" data-building="North Building">North Building</button>
+    </div>
+    <div class="map" id="map-south" data-building="South Building">
+      <img class="floorplan" src="https://knect365.imgix.net/uploads/FXC26-Show-Map-Web---Exhibit-Hall---South-Building-a68adf2f261387c32407124a3482d827.png?auto=format&fit=max" alt="South Building floor plan">
+    </div>
+    <div class="map hidden" id="map-north" data-building="North Building">
+      <img class="floorplan" src="https://knect365.imgix.net/uploads/FXC26-Show-Map-Web---Panels-Programming---North-Building-27cc22e1173401a99bfc469333e99196.png?auto=format&fit=max" alt="North Building floor plan">
+    </div>
+    <div class="legend">
+      <div class="legend-item"><span class="swatch" style="background:#d1453d"></span>Red</div>
+      <div class="legend-item"><span class="swatch" style="background:#2f5ab8"></span>Blue</div>
+      <div class="legend-item"><span class="swatch" style="background:#d4a017"></span>Yellow</div>
+      <div class="legend-item"><span class="swatch" style="background:#3f8c4a"></span>Green</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div id="prompt">Tap anywhere on the map to log a sighting</div>
+    <div class="picker" id="picker">
+      <div class="form-panel">
+        <div class="form-row">
+          <label class="form-label">Which wizard?</label>
+          <div class="color-row">
+            <button class="color-btn" style="background:#d1453d" data-color="red" title="Red wizard"></button>
+            <button class="color-btn" style="background:#2f5ab8" data-color="blue" title="Blue wizard"></button>
+            <button class="color-btn" style="background:#d4a017" data-color="yellow" title="Yellow wizard"></button>
+            <button class="color-btn" style="background:#3f8c4a" data-color="green" title="Green wizard"></button>
+          </div>
+        </div>
+        <div class="form-row" id="handleRow">
+          <label class="form-label" id="handleLabel" for="handleInput">Instagram handle (optional)</label>
+          <input type="text" id="handleInput" placeholder="@yourhandle or leave blank for Anonymous" class="text-input">
+        </div>
+        <div class="form-row" id="photoRow" style="display:none;">
+          <label class="form-label" for="photoInput">Link to your photo (optional)</label>
+          <input type="url" id="photoInput" placeholder="https://instagram.com/p/..." class="text-input">
+        </div>
+        <div class="form-row">
+          <label class="form-label">When did you see it?</label>
+          <div class="time-toggle">
+            <button class="time-btn active" data-when="now">Just now</button>
+            <button class="time-btn" data-when="specify">Specify date/time</button>
+          </div>
+          <input type="datetime-local" id="timeInput" class="text-input" style="display:none; margin-top:8px;"
+                 min="2026-08-27T09:00" max="2026-08-30T20:00">
+        </div>
+        <button class="submit-btn" id="submitBtn" disabled>Log Sighting</button>
+      </div>
+    </div>
+    <div style="text-align:center;">
+      <button class="cancel-btn" id="cancelBtn" style="display:none;">Cancel</button>
+    </div>
+  </div>
+
+  <div class="sightings">
+    <h2>Recent Sightings</h2>
+    <div class="sighting-list" id="sightingList">
+      <div class="empty-msg">Loading sightings...</div>
+    </div>
+  </div>
+
+  <footer>Crowdsourced by fans, not affiliated with eBay. This build stores sightings on this device.</footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STORAGE_KEY = 'wizard-sightings-mtcc';
+const colors = {
+  red: '#d1453d',
+  blue: '#2f5ab8',
+  yellow: '#d4a017',
+  green: '#3f8c4a'
+};
+
+function detectSourceChannel() {
+  const params = new URLSearchParams(window.location.search);
+  const explicitSrc = params.get('src') || params.get('utm_source');
+  if (explicitSrc) return explicitSrc.toLowerCase();
+
+  const ref = document.referrer.toLowerCase();
+  if (ref.includes('reddit.com')) return 'reddit';
+  if (ref.includes('instagram.com')) return 'instagram';
+  if (ref.includes('t.co') || ref.includes('twitter.com') || ref.includes('x.com')) return 'twitter';
+  if (ref.includes('tiktok.com')) return 'tiktok';
+  if (ref.includes('facebook.com') || ref.includes('fb.com')) return 'facebook';
+  if (ref) return 'other-link';
+  return 'direct';
+}
+
+const sourceChannel = detectSourceChannel();
+
+const sourceIcons = {
+  reddit: '👽',
+  instagram: '📸',
+  twitter: '🐦',
+  tiktok: '🎵',
+  facebook: '📘',
+  'other-link': '🔗',
+  direct: '⌨️'
+};
+
+function configureHandleField() {
+  const label = document.getElementById('handleLabel');
+  const input = document.getElementById('handleInput');
+  const photoRow = document.getElementById('photoRow');
+
+  if (sourceChannel === 'reddit') {
+    label.textContent = 'Reddit username (optional)';
+    input.placeholder = 'u/yourname or leave blank for Anonymous';
+    photoRow.style.display = 'none';
+  } else if (sourceChannel === 'instagram') {
+    label.textContent = 'Instagram handle (optional)';
+    input.placeholder = '@yourhandle or leave blank for Anonymous';
+    photoRow.style.display = 'block';
+  } else {
+    label.textContent = 'Name or handle (optional)';
+    input.placeholder = 'Leave blank for Anonymous';
+    photoRow.style.display = 'none';
+  }
+}
+
+let pendingClick = null;
+let sightings = [];
+let activeBuilding = 'South Building';
+let selectedColor = null;
+let selectedWhen = 'now';
+
+const maps = {
+  'South Building': document.getElementById('map-south'),
+  'North Building': document.getElementById('map-north')
+};
+const picker = document.getElementById('picker');
+const prompt = document.getElementById('prompt');
+const cancelBtn = document.getElementById('cancelBtn');
+const sightingList = document.getElementById('sightingList');
+const toast = document.getElementById('toast');
+const tabBtns = document.querySelectorAll('.tab-btn');
+
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2200);
+}
+
+function wizardHatSVG(color) {
+  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <path d="M50 5 C55 5 60 20 65 45 C70 65 78 75 85 85 L15 85 C22 75 30 65 35 45 C40 20 45 5 50 5 Z" fill="${color}" stroke="#2b2416" stroke-width="3"/>
+    <ellipse cx="50" cy="85" rx="38" ry="9" fill="${color}" stroke="#2b2416" stroke-width="3"/>
+  </svg>`;
+}
+
+function freshnessOpacity(timestamp) {
+  const ageMs = Date.now() - timestamp;
+  const ageHours = ageMs / (1000 * 60 * 60);
+  // full opacity for first 30 min, fades to 0.25 min opacity by 6 hours
+  if (ageHours < 0.5) return 1;
+  if (ageHours > 6) return 0.25;
+  const t = (ageHours - 0.5) / 5.5;
+  return 1 - t * 0.75;
+}
+
+function timeAgo(timestamp) {
+  const diffMs = Date.now() - timestamp;
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
+function renderPins() {
+  Object.values(maps).forEach(m => {
+    m.querySelectorAll('.pin').forEach(p => p.remove());
+  });
+  sightings.forEach(s => {
+    const targetMap = maps[s.hall] || maps['South Building'];
+    const pin = document.createElement('div');
+    pin.className = 'pin';
+    pin.style.left = s.xPct + '%';
+    pin.style.top = s.yPct + '%';
+    pin.style.opacity = freshnessOpacity(s.timestamp);
+    pin.innerHTML = `<div class="pin-hat">${wizardHatSVG(colors[s.color])}</div><div class="pin-time">${timeAgo(s.timestamp)}</div>`;
+    pin.title = `${s.color} wizard — ${timeAgo(s.timestamp)}${s.handle ? ' — @' + s.handle : ' — Anonymous'}`;
+    targetMap.appendChild(pin);
+  });
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[ch]);
+}
+
+function renderList() {
+  if (sightings.length === 0) {
+    sightingList.innerHTML = '<div class="empty-msg">No sightings yet — be the first to spot one!</div>';
+    return;
+  }
+  const sorted = [...sightings].sort((a, b) => b.timestamp - a.timestamp);
+  sightingList.innerHTML = sorted.slice(0, 30).map(s => {
+    const attribution = s.handle
+      ? (s.handlePlatform === 'reddit'
+          ? `<a href="https://reddit.com/u/${s.handle}" target="_blank" rel="noopener" style="color:#d8cba0; text-decoration:underline;">u/${s.handle}</a>`
+          : s.handlePlatform === 'instagram'
+            ? `<a href="https://instagram.com/${s.handle}" target="_blank" rel="noopener" style="color:#d8cba0; text-decoration:underline;">@${s.handle}</a>`
+            : escapeHtml(s.handle))
+      : 'Anonymous';
+    const photoLink = s.photoUrl
+      ? ` · <a href="${s.photoUrl}" target="_blank" rel="noopener" style="color:#d8cba0; text-decoration:underline;">photo</a>`
+      : '';
+    const sourceBadge = s.sourceChannel && s.sourceChannel !== 'direct'
+      ? ` <span title="Arrived via ${s.sourceChannel}">${sourceIcons[s.sourceChannel] || '🔗'}</span>`
+      : '';
+    return `
+    <div class="sighting-row" style="opacity:${Math.max(freshnessOpacity(s.timestamp), 0.5)}">
+      <span class="dot" style="background:${colors[s.color]}"></span>
+      <span class="loc">${s.color[0].toUpperCase()+s.color.slice(1)} wizard — ${s.hall}<br><span style="font-weight:400; font-size:11px; color:#b9a97a;">reported by ${attribution}${photoLink}${sourceBadge}</span></span>
+      <span class="time">${timeAgo(s.timestamp)}</span>
+    </div>
+  `;
+  }).join('');
+}
+
+function renderAll() {
+  renderPins();
+  renderList();
+}
+
+async function loadSightings() {
+  try {
+    const result = localStorage.getItem(STORAGE_KEY);
+    sightings = result ? JSON.parse(result) : [];
+  } catch (e) {
+    sightings = [];
+  }
+  renderAll();
+}
+
+async function saveSightings() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sightings));
+  } catch (e) {
+    showToast('Could not save — try again');
+  }
+}
+
+tabBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    tabBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeBuilding = btn.dataset.building;
+    Object.entries(maps).forEach(([name, el]) => {
+      el.classList.toggle('hidden', name !== activeBuilding);
+    });
+  });
+});
+
+Object.entries(maps).forEach(([buildingName, mapEl]) => {
+  mapEl.addEventListener('click', (e) => {
+    if (picker.classList.contains('active')) return;
+    const rect = mapEl.getBoundingClientRect();
+    const xPct = ((e.clientX - rect.left) / rect.width) * 100;
+    const yPct = ((e.clientY - rect.top) / rect.height) * 100;
+    pendingClick = { xPct, yPct, hall: buildingName };
+    picker.classList.add('active');
+    cancelBtn.style.display = 'inline-block';
+    prompt.textContent = `Which wizard did you see in the ${buildingName}?`;
+  });
+});
+
+picker.addEventListener('click', (e) => {
+  const colorBtn = e.target.closest('.color-btn');
+  if (colorBtn) {
+    document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+    colorBtn.classList.add('selected');
+    selectedColor = colorBtn.dataset.color;
+    updateSubmitState();
+  }
+  const timeBtn = e.target.closest('.time-btn');
+  if (timeBtn) {
+    document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+    timeBtn.classList.add('active');
+    selectedWhen = timeBtn.dataset.when;
+    document.getElementById('timeInput').style.display = selectedWhen === 'specify' ? 'block' : 'none';
+    updateSubmitState();
+  }
+});
+
+document.getElementById('timeInput').addEventListener('input', updateSubmitState);
+
+function updateSubmitState() {
+  const submitBtn = document.getElementById('submitBtn');
+  let ok = !!selectedColor;
+  if (selectedWhen === 'specify') {
+    ok = ok && !!document.getElementById('timeInput').value;
+  }
+  submitBtn.disabled = !ok;
+}
+
+document.getElementById('submitBtn').addEventListener('click', async () => {
+  if (!pendingClick || !selectedColor) return;
+  const handleRaw = document.getElementById('handleInput').value.trim();
+  const handle = handleRaw ? handleRaw.replace(/^@/, '').replace(/^u\//, '') : null;
+  const photoUrl = sourceChannel === 'instagram'
+    ? (document.getElementById('photoInput').value.trim() || null)
+    : null;
+  const handlePlatform = sourceChannel === 'reddit' ? 'reddit'
+    : sourceChannel === 'instagram' ? 'instagram'
+    : null;
+
+  let timestamp = Date.now();
+  if (selectedWhen === 'specify') {
+    const val = document.getElementById('timeInput').value;
+    if (val) timestamp = new Date(val).getTime();
+  }
+
+  const sighting = {
+    id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+    color: selectedColor,
+    xPct: pendingClick.xPct,
+    yPct: pendingClick.yPct,
+    hall: pendingClick.hall,
+    timestamp,
+    handle,
+    handlePlatform,
+    photoUrl,
+    sourceChannel
+  };
+  sightings.push(sighting);
+  renderAll();
+  await saveSightings();
+  showToast(`${selectedColor[0].toUpperCase()+selectedColor.slice(1)} wizard logged in ${pendingClick.hall}!`);
+  resetForm();
+});
+
+function resetForm() {
+  picker.classList.remove('active');
+  cancelBtn.style.display = 'none';
+  prompt.textContent = 'Tap anywhere on the map to log a sighting';
+  pendingClick = null;
+  selectedColor = null;
+  selectedWhen = 'now';
+  document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+  document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.time-btn[data-when="now"]').classList.add('active');
+  document.getElementById('timeInput').style.display = 'none';
+  document.getElementById('timeInput').value = '';
+  document.getElementById('handleInput').value = '';
+  document.getElementById('photoInput').value = '';
+  document.getElementById('submitBtn').disabled = true;
+}
+
+cancelBtn.addEventListener('click', resetForm);
+
+// Refresh freshness visuals every minute, and re-poll storage every 20s for new sightings from others
+configureHandleField();
+loadSightings();
+setInterval(renderAll, 60000);
+setInterval(loadSightings, 20000);
+</script>
+</body>
+</html>

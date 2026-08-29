@@ -165,7 +165,6 @@
   }
 
   .map {
-    position: relative;
     width: 100%;
     background: #ece2c4;
     border: 2px solid var(--gold);
@@ -174,7 +173,12 @@
     overflow: hidden;
   }
 
-  .map img.floorplan {
+  .floorplan-stage {
+    position: relative;
+    width: 100%;
+  }
+
+  .floorplan-stage img.floorplan {
     display: block;
     width: 100%;
     height: auto;
@@ -187,12 +191,11 @@
   .pin {
     position: absolute;
     width: 26px;
-    transform: translate(-50%, -100%);
+    height: 26px;
+    transform: translate(-50%, -50%);
     cursor: pointer;
     transition: opacity 0.4s ease;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    z-index: 2;
   }
 
   .pin-hat {
@@ -204,7 +207,10 @@
   .pin-hat svg { width: 100%; height: 100%; display: block; }
 
   .pin-time {
-    margin-top: 2px;
+    position: absolute;
+    top: 28px;
+    left: 50%;
+    transform: translateX(-50%);
     font-size: 9px;
     font-weight: 700;
     color: var(--ink);
@@ -215,6 +221,54 @@
     white-space: nowrap;
     pointer-events: none;
     font-family: 'Inter', sans-serif;
+  }
+
+  .preview-marker {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    transform: translate(-50%, -50%);
+    border: 2px dashed var(--ink-soft);
+    border-radius: 50%;
+    background: rgba(243,236,216,0.88);
+    box-shadow: 0 2px 8px rgba(43,36,22,0.35);
+    pointer-events: none;
+    z-index: 3;
+  }
+
+  .preview-marker::before,
+  .preview-marker::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    background: var(--ink-soft);
+    transform: translate(-50%, -50%);
+  }
+
+  .preview-marker::before {
+    width: 12px;
+    height: 2px;
+  }
+
+  .preview-marker::after {
+    width: 2px;
+    height: 12px;
+  }
+
+  .preview-label {
+    position: absolute;
+    top: 34px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 2px 6px;
+    border: 1px solid rgba(43,36,22,0.35);
+    border-radius: 6px;
+    background: rgba(243,236,216,0.96);
+    color: var(--ink);
+    font-size: 9px;
+    font-weight: 700;
+    white-space: nowrap;
   }
 
   .legend {
@@ -490,25 +544,39 @@
       </div>
     </div>
     <div class="map hidden" id="map-level-100" data-level="100" data-building="North Building">
-      <img class="floorplan" src="maps/mtcc-level-100.png" alt="MTCC Level 100 floor plan">
+      <div class="floorplan-stage">
+        <img class="floorplan" src="maps/mtcc-level-100.png" alt="MTCC Level 100 floor plan">
+      </div>
     </div>
     <div class="map" id="map-level-200" data-level="200" data-building="North Building">
-      <img class="floorplan" src="maps/mtcc-level-200.png" alt="MTCC Level 200 floor plan">
+      <div class="floorplan-stage">
+        <img class="floorplan" src="maps/mtcc-level-200.png" alt="MTCC Level 200 floor plan">
+      </div>
     </div>
     <div class="map hidden" id="map-level-300" data-level="300" data-building="North Building">
-      <img class="floorplan" src="https://knect365.imgix.net/uploads/FXC26-Show-Map-Web---Panels-Programming---North-Building-27cc22e1173401a99bfc469333e99196.png?auto=format&amp;fit=max" alt="Fan Expo Level 300 North Building floor plan">
+      <div class="floorplan-stage">
+        <img class="floorplan" src="https://knect365.imgix.net/uploads/FXC26-Show-Map-Web---Panels-Programming---North-Building-27cc22e1173401a99bfc469333e99196.png?auto=format&amp;fit=max" alt="Fan Expo Level 300 North Building floor plan">
+      </div>
     </div>
     <div class="map hidden" id="map-level-500" data-level="500" data-building="South Building">
-      <img class="floorplan" src="maps/mtcc-level-500.png" alt="MTCC Level 500 floor plan">
+      <div class="floorplan-stage">
+        <img class="floorplan" src="maps/mtcc-level-500.png" alt="MTCC Level 500 floor plan">
+      </div>
     </div>
     <div class="map hidden" id="map-level-600" data-level="600" data-building="South Building">
-      <img class="floorplan" src="maps/mtcc-level-600.png" alt="MTCC Level 600 floor plan">
+      <div class="floorplan-stage">
+        <img class="floorplan" src="maps/mtcc-level-600.png" alt="MTCC Level 600 floor plan">
+      </div>
     </div>
     <div class="map hidden" id="map-level-700" data-level="700" data-building="South Building">
-      <img class="floorplan" src="maps/mtcc-level-700.png" alt="MTCC Level 700 floor plan">
+      <div class="floorplan-stage">
+        <img class="floorplan" src="maps/mtcc-level-700.png" alt="MTCC Level 700 floor plan">
+      </div>
     </div>
     <div class="map hidden" id="map-level-800" data-level="800" data-building="South Building">
-      <img class="floorplan" src="https://knect365.imgix.net/uploads/FXC26-Show-Map-Web---Exhibit-Hall---South-Building-a68adf2f261387c32407124a3482d827.png?auto=format&amp;fit=max" alt="Fan Expo Level 800 South Building floor plan">
+      <div class="floorplan-stage">
+        <img class="floorplan" src="https://knect365.imgix.net/uploads/FXC26-Show-Map-Web---Exhibit-Hall---South-Building-a68adf2f261387c32407124a3482d827.png?auto=format&amp;fit=max" alt="Fan Expo Level 800 South Building floor plan">
+      </div>
     </div>
     <div class="legend">
       <div class="legend-item"><span class="swatch" style="background:#d1453d"></span>Red</div>
@@ -715,6 +783,7 @@ function renderPins() {
   });
   sightings.forEach(s => {
     const targetMap = maps[getSightingLevel(s)];
+    const targetStage = targetMap.querySelector('.floorplan-stage');
     const pin = document.createElement('div');
     pin.className = 'pin';
     pin.style.left = s.xPct + '%';
@@ -722,8 +791,22 @@ function renderPins() {
     pin.style.opacity = freshnessOpacity(s.timestamp);
     pin.innerHTML = `<div class="pin-hat">${wizardHatSVG(colors[s.color])}</div><div class="pin-time">${timeAgo(s.timestamp)}</div>`;
     pin.title = `${s.color} wizard — ${timeAgo(s.timestamp)}${s.handle ? ' — @' + s.handle : ' — Anonymous'}`;
-    targetMap.appendChild(pin);
+    targetStage.appendChild(pin);
   });
+}
+
+function renderPreview() {
+  document.querySelectorAll('.preview-marker').forEach(marker => marker.remove());
+  if (!pendingClick) return;
+
+  const targetStage = maps[pendingClick.level].querySelector('.floorplan-stage');
+  const marker = document.createElement('div');
+  marker.className = 'preview-marker';
+  marker.setAttribute('aria-hidden', 'true');
+  marker.style.left = pendingClick.xPct + '%';
+  marker.style.top = pendingClick.yPct + '%';
+  marker.innerHTML = '<span class="preview-label">Selected point</span>';
+  targetStage.appendChild(marker);
 }
 
 function escapeHtml(value) {
@@ -799,16 +882,18 @@ tabBtns.forEach(btn => {
 });
 
 Object.entries(maps).forEach(([level, mapEl]) => {
-  mapEl.addEventListener('click', (e) => {
-    if (picker.classList.contains('active')) return;
-    const rect = mapEl.getBoundingClientRect();
-    const xPct = ((e.clientX - rect.left) / rect.width) * 100;
-    const yPct = ((e.clientY - rect.top) / rect.height) * 100;
+  const stage = mapEl.querySelector('.floorplan-stage');
+  stage.addEventListener('click', (e) => {
+    const image = stage.querySelector('img.floorplan');
+    const rect = image.getBoundingClientRect();
+    const xPct = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    const yPct = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
     const building = mapEl.dataset.building;
     pendingClick = { xPct, yPct, level, building, hall: building };
+    renderPreview();
     picker.classList.add('active');
     cancelBtn.style.display = 'inline-block';
-    prompt.textContent = `Which wizard did you see on Level ${level} in the ${building}?`;
+    prompt.textContent = `Point selected on Level ${level}. Tap the map again to adjust it.`;
   });
 });
 
@@ -884,6 +969,7 @@ function resetForm() {
   cancelBtn.style.display = 'none';
   prompt.textContent = 'Tap anywhere on the map to log a sighting';
   pendingClick = null;
+  renderPreview();
   selectedColor = null;
   selectedWhen = 'now';
   document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));

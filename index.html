@@ -414,22 +414,34 @@
   <div class="board">
     <div class="map-title">Metro Toronto Convention Centre — Official Floor Plan</div>
     <div class="building-tabs">
-      <button class="tab-btn active" data-building="Level 200">Level 200</button>
-      <button class="tab-btn" data-building="Level 500">Level 500</button>
-      <button class="tab-btn" data-building="Level 600">Level 600</button>
-      <button class="tab-btn" data-building="Level 700">Level 700</button>
+      <button class="tab-btn" data-level="100" data-building="North Building">Level 100</button>
+      <button class="tab-btn active" data-level="200" data-building="North Building">Level 200</button>
+      <button class="tab-btn" data-level="300" data-building="North Building">Level 300</button>
+      <button class="tab-btn" data-level="500" data-building="South Building">Level 500</button>
+      <button class="tab-btn" data-level="600" data-building="South Building">Level 600</button>
+      <button class="tab-btn" data-level="700" data-building="South Building">Level 700</button>
+      <button class="tab-btn" data-level="800" data-building="South Building">Level 800</button>
     </div>
-    <div class="map" id="map-level-200" data-building="Level 200">
+    <div class="map hidden" id="map-level-100" data-level="100" data-building="North Building">
+      <img class="floorplan" src="maps/mtcc-level-100.png" alt="MTCC Level 100 floor plan">
+    </div>
+    <div class="map" id="map-level-200" data-level="200" data-building="North Building">
       <img class="floorplan" src="maps/mtcc-level-200.png" alt="MTCC Level 200 floor plan">
     </div>
-    <div class="map hidden" id="map-level-500" data-building="Level 500">
+    <div class="map hidden" id="map-level-300" data-level="300" data-building="North Building">
+      <img class="floorplan" src="https://knect365.imgix.net/uploads/FXC26-Show-Map-Web---Panels-Programming---North-Building-27cc22e1173401a99bfc469333e99196.png?auto=format&amp;fit=max" alt="Fan Expo Level 300 North Building floor plan">
+    </div>
+    <div class="map hidden" id="map-level-500" data-level="500" data-building="South Building">
       <img class="floorplan" src="maps/mtcc-level-500.png" alt="MTCC Level 500 floor plan">
     </div>
-    <div class="map hidden" id="map-level-600" data-building="Level 600">
+    <div class="map hidden" id="map-level-600" data-level="600" data-building="South Building">
       <img class="floorplan" src="maps/mtcc-level-600.png" alt="MTCC Level 600 floor plan">
     </div>
-    <div class="map hidden" id="map-level-700" data-building="Level 700">
+    <div class="map hidden" id="map-level-700" data-level="700" data-building="South Building">
       <img class="floorplan" src="maps/mtcc-level-700.png" alt="MTCC Level 700 floor plan">
+    </div>
+    <div class="map hidden" id="map-level-800" data-level="800" data-building="South Building">
+      <img class="floorplan" src="https://knect365.imgix.net/uploads/FXC26-Show-Map-Web---Exhibit-Hall---South-Building-a68adf2f261387c32407124a3482d827.png?auto=format&amp;fit=max" alt="Fan Expo Level 800 South Building floor plan">
     </div>
     <div class="legend">
       <div class="legend-item"><span class="swatch" style="background:#d1453d"></span>Red</div>
@@ -547,15 +559,28 @@ function configureHandleField() {
 
 let pendingClick = null;
 let sightings = [];
-let activeBuilding = 'Level 200';
+let activeLevel = '200';
 let selectedColor = null;
 let selectedWhen = 'now';
 
+const buildingsByLevel = {
+  '100': 'North Building',
+  '200': 'North Building',
+  '300': 'North Building',
+  '500': 'South Building',
+  '600': 'South Building',
+  '700': 'South Building',
+  '800': 'South Building'
+};
+
 const maps = {
-  'Level 200': document.getElementById('map-level-200'),
-  'Level 500': document.getElementById('map-level-500'),
-  'Level 600': document.getElementById('map-level-600'),
-  'Level 700': document.getElementById('map-level-700')
+  '100': document.getElementById('map-level-100'),
+  '200': document.getElementById('map-level-200'),
+  '300': document.getElementById('map-level-300'),
+  '500': document.getElementById('map-level-500'),
+  '600': document.getElementById('map-level-600'),
+  '700': document.getElementById('map-level-700'),
+  '800': document.getElementById('map-level-800')
 };
 const picker = document.getElementById('picker');
 const prompt = document.getElementById('prompt');
@@ -598,12 +623,31 @@ function timeAgo(timestamp) {
   return `${days}d ago`;
 }
 
+function getSightingLevel(sighting) {
+  const storedLevel = String(sighting.level || '');
+  if (maps[storedLevel]) return storedLevel;
+
+  const legacyLevel = String(sighting.hall || '').match(/^Level\s+(\d+)$/i);
+  if (legacyLevel && maps[legacyLevel[1]]) return legacyLevel[1];
+
+  // Sightings from the original two-map version used building names only.
+  if (sighting.hall === 'North Building') return '300';
+  if (sighting.hall === 'South Building') return '800';
+  return '200';
+}
+
+function getSightingBuilding(sighting, level) {
+  if (sighting.building) return sighting.building;
+  if (sighting.hall === 'North Building' || sighting.hall === 'South Building') return sighting.hall;
+  return buildingsByLevel[level];
+}
+
 function renderPins() {
   Object.values(maps).forEach(m => {
     m.querySelectorAll('.pin').forEach(p => p.remove());
   });
   sightings.forEach(s => {
-    const targetMap = maps[s.hall] || maps['Level 200'];
+    const targetMap = maps[getSightingLevel(s)];
     const pin = document.createElement('div');
     pin.className = 'pin';
     pin.style.left = s.xPct + '%';
@@ -628,6 +672,8 @@ function renderList() {
   }
   const sorted = [...sightings].sort((a, b) => b.timestamp - a.timestamp);
   sightingList.innerHTML = sorted.slice(0, 30).map(s => {
+    const level = getSightingLevel(s);
+    const building = getSightingBuilding(s, level);
     const attribution = s.handle
       ? (s.handlePlatform === 'reddit'
           ? `<a href="https://reddit.com/u/${s.handle}" target="_blank" rel="noopener" style="color:#d8cba0; text-decoration:underline;">u/${s.handle}</a>`
@@ -644,7 +690,7 @@ function renderList() {
     return `
     <div class="sighting-row" style="opacity:${Math.max(freshnessOpacity(s.timestamp), 0.5)}">
       <span class="dot" style="background:${colors[s.color]}"></span>
-      <span class="loc">${s.color[0].toUpperCase()+s.color.slice(1)} wizard — ${s.hall}<br><span style="font-weight:400; font-size:11px; color:#b9a97a;">reported by ${attribution}${photoLink}${sourceBadge}</span></span>
+      <span class="loc">${s.color[0].toUpperCase()+s.color.slice(1)} wizard — Level ${level}, ${building}<br><span style="font-weight:400; font-size:11px; color:#b9a97a;">reported by ${attribution}${photoLink}${sourceBadge}</span></span>
       <span class="time">${timeAgo(s.timestamp)}</span>
     </div>
   `;
@@ -678,23 +724,24 @@ tabBtns.forEach(btn => {
   btn.addEventListener('click', () => {
     tabBtns.forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    activeBuilding = btn.dataset.building;
-    Object.entries(maps).forEach(([name, el]) => {
-      el.classList.toggle('hidden', name !== activeBuilding);
+    activeLevel = btn.dataset.level;
+    Object.entries(maps).forEach(([level, el]) => {
+      el.classList.toggle('hidden', level !== activeLevel);
     });
   });
 });
 
-Object.entries(maps).forEach(([buildingName, mapEl]) => {
+Object.entries(maps).forEach(([level, mapEl]) => {
   mapEl.addEventListener('click', (e) => {
     if (picker.classList.contains('active')) return;
     const rect = mapEl.getBoundingClientRect();
     const xPct = ((e.clientX - rect.left) / rect.width) * 100;
     const yPct = ((e.clientY - rect.top) / rect.height) * 100;
-    pendingClick = { xPct, yPct, hall: buildingName };
+    const building = mapEl.dataset.building;
+    pendingClick = { xPct, yPct, level, building, hall: building };
     picker.classList.add('active');
     cancelBtn.style.display = 'inline-block';
-    prompt.textContent = `Which wizard did you see in the ${buildingName}?`;
+    prompt.textContent = `Which wizard did you see on Level ${level} in the ${building}?`;
   });
 });
 
@@ -749,6 +796,8 @@ document.getElementById('submitBtn').addEventListener('click', async () => {
     color: selectedColor,
     xPct: pendingClick.xPct,
     yPct: pendingClick.yPct,
+    level: pendingClick.level,
+    building: pendingClick.building,
     hall: pendingClick.hall,
     timestamp,
     handle,
@@ -759,7 +808,7 @@ document.getElementById('submitBtn').addEventListener('click', async () => {
   sightings.push(sighting);
   renderAll();
   await saveSightings();
-  showToast(`${selectedColor[0].toUpperCase()+selectedColor.slice(1)} wizard logged in ${pendingClick.hall}!`);
+  showToast(`${selectedColor[0].toUpperCase()+selectedColor.slice(1)} wizard logged on Level ${pendingClick.level}!`);
   resetForm();
 });
 

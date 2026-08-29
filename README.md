@@ -36,9 +36,9 @@ Levels 300 and 800 use the Fan Expo-specific show maps. The other levels use off
 
 ## Privacy and storage
 
-This version stores sightings locally in your browser using `localStorage`.
+Sightings are shared between visitors through Supabase. The browser also keeps a local cache and queues submissions made while cloud sync is unavailable, retrying them when the connection returns.
 
-That means sightings are currently visible only on the device/browser where they were entered. They are not yet synchronized between visitors.
+The public browser key can read and insert sightings only; database permissions should continue to deny updates and deletes for anonymous visitors.
 
 ## Project structure
 

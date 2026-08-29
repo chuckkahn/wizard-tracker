@@ -605,11 +605,11 @@
         </div>
         <div class="form-row" id="handleRow">
           <label class="form-label" id="handleLabel" for="handleInput">Instagram handle (optional)</label>
-          <input type="text" id="handleInput" placeholder="@yourhandle or leave blank for Anonymous" class="text-input">
+          <input type="text" id="handleInput" placeholder="@yourhandle or leave blank for Anonymous" maxlength="80" class="text-input">
         </div>
         <div class="form-row" id="photoRow" style="display:none;">
           <label class="form-label" for="photoInput">Link to your photo (optional)</label>
-          <input type="url" id="photoInput" placeholder="https://instagram.com/p/..." class="text-input">
+          <input type="url" id="photoInput" placeholder="https://instagram.com/p/..." maxlength="2048" class="text-input">
         </div>
         <div class="form-row">
           <label class="form-label">When did you see it?</label>
@@ -635,13 +635,23 @@
     </div>
   </div>
 
-  <footer>Crowdsourced by fans, not affiliated with eBay. This build stores sightings on this device.</footer>
+  <footer>
+    Crowdsourced by fans, not affiliated with eBay. Sightings sync across browsers with an offline fallback.
+    <span id="syncStatus">Connecting…</span>
+  </footer>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
 const STORAGE_KEY = 'wizard-sightings-mtcc';
+const PENDING_SYNC_KEY = 'wizard-sightings-mtcc-pending-sync';
+const SUPABASE_URL = 'https://dfeopuoimgngeoqdaedx.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_XZ-syqyWkIPji2QrIZ3AsQ_4bnNlrZq';
+const SIGHTINGS_ENDPOINT = `${SUPABASE_URL}/rest/v1/sightings`;
+const SIGHTINGS_SELECT = 'id,color,x_pct,y_pct,level,building,timestamp,handle,handle_platform,photo_url,source_channel';
+// Supabase committed this write-policy probe despite a requested transaction rollback.
+const NON_SIGHTING_IDS = new Set(['5f423b2a-92a3-4fb2-8dd4-b23a06ce9d41']);
 const colors = {
   red: '#d1453d',
   blue: '#2f5ab8',
@@ -726,7 +736,9 @@ const prompt = document.getElementById('prompt');
 const cancelBtn = document.getElementById('cancelBtn');
 const sightingList = document.getElementById('sightingList');
 const toast = document.getElementById('toast');
+const syncStatus = document.getElementById('syncStatus');
 const tabBtns = document.querySelectorAll('.tab-btn');
+let loadInFlight = false;
 
 function showToast(msg) {
   toast.textContent = msg;
@@ -762,6 +774,10 @@ function timeAgo(timestamp) {
   return `${days}d ago`;
 }
 
+function setSyncStatus(online) {
+  syncStatus.textContent = online ? 'Cloud sync connected.' : 'Offline — retrying cloud sync.';
+}
+
 function getSightingLevel(sighting) {
   const storedLevel = String(sighting.level || '');
   if (maps[storedLevel]) return storedLevel;
@@ -779,6 +795,156 @@ function getSightingBuilding(sighting, level) {
   if (sighting.building) return sighting.building;
   if (sighting.hall === 'North Building' || sighting.hall === 'South Building') return sighting.hall;
   return buildingsByLevel[level];
+}
+
+function readStoredSightings(key) {
+  try {
+    const value = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(value) ? value : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function writeStoredSightings(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function normalizeText(value, maxLength) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, maxLength) : null;
+}
+
+function normalizePhotoUrl(value) {
+  const text = normalizeText(value, 2048);
+  if (!text) return null;
+  try {
+    const url = new URL(text);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function normalizeSourceChannel(value) {
+  if (!value) return 'direct';
+  return Object.prototype.hasOwnProperty.call(sourceIcons, value) ? value : 'other-link';
+}
+
+function normalizeTimestamp(value) {
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) return numeric;
+  return Date.parse(value);
+}
+
+function normalizeSighting(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  if (NON_SIGHTING_IDS.has(String(raw.id || ''))) return null;
+
+  const color = typeof raw.color === 'string' ? raw.color.toLowerCase() : '';
+  const xPct = Number(raw.xPct ?? raw.x_pct);
+  const yPct = Number(raw.yPct ?? raw.y_pct);
+  const timestamp = normalizeTimestamp(raw.timestamp);
+  const handlePlatform = normalizeText(raw.handlePlatform ?? raw.handle_platform, 20);
+  const base = {
+    id: normalizeText(String(raw.id || ''), 80),
+    color,
+    xPct,
+    yPct,
+    level: raw.level,
+    building: raw.building,
+    hall: raw.hall || raw.building,
+    timestamp,
+    handle: normalizeText(raw.handle, 80),
+    handlePlatform: handlePlatform === 'reddit' || handlePlatform === 'instagram'
+      ? handlePlatform
+      : null,
+    photoUrl: normalizePhotoUrl(raw.photoUrl ?? raw.photo_url),
+    sourceChannel: normalizeSourceChannel(raw.sourceChannel ?? raw.source_channel)
+  };
+
+  const level = getSightingLevel(base);
+  if (!base.id || !colors[color] || !Number.isFinite(xPct) || !Number.isFinite(yPct) ||
+      xPct < 0 || xPct > 100 || yPct < 0 || yPct > 100 || !Number.isFinite(timestamp)) {
+    return null;
+  }
+
+  base.level = level;
+  base.building = buildingsByLevel[level];
+  base.hall = base.building;
+  return base;
+}
+
+function dedupeSightings(values) {
+  const byId = new Map();
+  values.forEach(value => {
+    const sighting = normalizeSighting(value);
+    if (sighting) byId.set(sighting.id, sighting);
+  });
+  return [...byId.values()];
+}
+
+function sightingToRow(sighting) {
+  return {
+    id: sighting.id,
+    color: sighting.color,
+    x_pct: sighting.xPct,
+    y_pct: sighting.yPct,
+    level: Number(sighting.level),
+    building: sighting.building,
+    timestamp: new Date(sighting.timestamp).toISOString(),
+    handle: sighting.handle,
+    handle_platform: sighting.handlePlatform,
+    photo_url: sighting.photoUrl,
+    source_channel: sighting.sourceChannel
+  };
+}
+
+async function requestSightings(path = '', options = {}) {
+  const response = await fetch(SIGHTINGS_ENDPOINT + path, {
+    ...options,
+    headers: {
+      apikey: SUPABASE_PUBLISHABLE_KEY,
+      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(options.headers || {})
+    }
+  });
+
+  if (!response.ok) {
+    const detail = (await response.text()).slice(0, 300);
+    throw new Error(`Supabase request failed (${response.status}): ${detail}`);
+  }
+
+  if (response.status === 204 || response.headers.get('content-length') === '0') return null;
+  return response.json();
+}
+
+async function fetchCloudSightings() {
+  const rows = await requestSightings(`?select=${encodeURIComponent(SIGHTINGS_SELECT)}&order=timestamp.desc&limit=200`);
+  return dedupeSightings(rows || []);
+}
+
+async function uploadSightings(values) {
+  const normalized = dedupeSightings(values);
+  if (normalized.length === 0) return;
+  await requestSightings('?on_conflict=id', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' },
+    body: JSON.stringify(normalized.map(sightingToRow))
+  });
+}
+
+async function flushPendingSightings() {
+  const pending = dedupeSightings(readStoredSightings(PENDING_SYNC_KEY));
+  if (pending.length === 0) return;
+  await uploadSightings(pending);
+  writeStoredSightings(PENDING_SYNC_KEY, []);
 }
 
 function renderPins() {
@@ -828,15 +994,16 @@ function renderList() {
   sightingList.innerHTML = sorted.slice(0, 30).map(s => {
     const level = getSightingLevel(s);
     const building = getSightingBuilding(s, level);
-    const attribution = s.handle
+    const safeHandle = s.handle ? escapeHtml(s.handle) : null;
+    const attribution = safeHandle
       ? (s.handlePlatform === 'reddit'
-          ? `<a href="https://reddit.com/u/${s.handle}" target="_blank" rel="noopener" style="color:#d8cba0; text-decoration:underline;">u/${s.handle}</a>`
+          ? `<a href="https://reddit.com/u/${encodeURIComponent(s.handle)}" target="_blank" rel="noopener" style="color:#d8cba0; text-decoration:underline;">u/${safeHandle}</a>`
           : s.handlePlatform === 'instagram'
-            ? `<a href="https://instagram.com/${s.handle}" target="_blank" rel="noopener" style="color:#d8cba0; text-decoration:underline;">@${s.handle}</a>`
-            : escapeHtml(s.handle))
+            ? `<a href="https://instagram.com/${encodeURIComponent(s.handle)}" target="_blank" rel="noopener" style="color:#d8cba0; text-decoration:underline;">@${safeHandle}</a>`
+            : safeHandle)
       : 'Anonymous';
     const photoLink = s.photoUrl
-      ? ` · <a href="${s.photoUrl}" target="_blank" rel="noopener" style="color:#d8cba0; text-decoration:underline;">photo</a>`
+      ? ` · <a href="${escapeHtml(s.photoUrl)}" target="_blank" rel="noopener" style="color:#d8cba0; text-decoration:underline;">photo</a>`
       : '';
     const sourceBadge = s.sourceChannel && s.sourceChannel !== 'direct'
       ? ` <span title="Arrived via ${s.sourceChannel}">${sourceIcons[s.sourceChannel] || '🔗'}</span>`
@@ -857,20 +1024,46 @@ function renderAll() {
 }
 
 async function loadSightings() {
-  try {
-    const result = localStorage.getItem(STORAGE_KEY);
-    sightings = result ? JSON.parse(result) : [];
-  } catch (e) {
-    sightings = [];
-  }
+  if (loadInFlight) return;
+  loadInFlight = true;
+
+  const localSightings = dedupeSightings(readStoredSightings(STORAGE_KEY));
+  sightings = localSightings;
   renderAll();
+
+  try {
+    await flushPendingSightings();
+    const cloudSightings = await fetchCloudSightings();
+    sightings = dedupeSightings([...localSightings, ...cloudSightings]);
+    writeStoredSightings(STORAGE_KEY, sightings);
+    setSyncStatus(true);
+  } catch (e) {
+    console.error('Cloud sighting sync failed:', e);
+    setSyncStatus(false);
+  } finally {
+    loadInFlight = false;
+    renderAll();
+  }
 }
 
-async function saveSightings() {
+async function saveSightings(newSighting) {
+  if (!writeStoredSightings(STORAGE_KEY, sightings)) {
+    showToast('Could not save on this device');
+  }
+
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sightings));
+    await uploadSightings([newSighting]);
+    const pending = dedupeSightings(readStoredSightings(PENDING_SYNC_KEY))
+      .filter(sighting => sighting.id !== newSighting.id);
+    writeStoredSightings(PENDING_SYNC_KEY, pending);
+    setSyncStatus(true);
+    return true;
   } catch (e) {
-    showToast('Could not save — try again');
+    console.error('Cloud sighting save failed:', e);
+    const pending = dedupeSightings([...readStoredSightings(PENDING_SYNC_KEY), newSighting]);
+    writeStoredSightings(PENDING_SYNC_KEY, pending);
+    setSyncStatus(false);
+    return false;
   }
 }
 
@@ -948,7 +1141,7 @@ document.getElementById('submitBtn').addEventListener('click', async () => {
   }
 
   const sighting = {
-    id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+    id: crypto.randomUUID(),
     color: selectedColor,
     xPct: pendingClick.xPct,
     yPct: pendingClick.yPct,
@@ -963,8 +1156,10 @@ document.getElementById('submitBtn').addEventListener('click', async () => {
   };
   sightings.push(sighting);
   renderAll();
-  await saveSightings();
-  showToast(`${selectedColor[0].toUpperCase()+selectedColor.slice(1)} wizard logged on Level ${pendingClick.level}!`);
+  const savedToCloud = await saveSightings(sighting);
+  showToast(savedToCloud
+    ? `${selectedColor[0].toUpperCase()+selectedColor.slice(1)} wizard logged on Level ${pendingClick.level}!`
+    : 'Saved on this device — cloud sync will retry');
   resetForm();
 });
 
@@ -988,7 +1183,7 @@ function resetForm() {
 
 cancelBtn.addEventListener('click', resetForm);
 
-// Refresh freshness visuals every minute, and re-poll storage every 20s for new sightings from others
+// Refresh freshness visuals every minute, and poll Supabase every 20s for sightings from other browsers.
 configureHandleField();
 loadSightings();
 setInterval(renderAll, 60000);

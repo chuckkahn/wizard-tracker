@@ -190,8 +190,8 @@
 
   .pin {
     position: absolute;
-    width: 26px;
-    height: 26px;
+    width: 36px;
+    height: 36px;
     transform: translate(-50%, -50%);
     cursor: pointer;
     transition: opacity 0.4s ease;
@@ -199,9 +199,13 @@
   }
 
   .pin-hat {
-    width: 26px;
-    height: 26px;
-    filter: drop-shadow(0 3px 4px rgba(0,0,0,0.4));
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 15px;
+    height: 15px;
+    transform: translate(-50%, -50%);
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.4));
   }
 
   .pin-hat svg { width: 100%; height: 100%; display: block; }
@@ -211,13 +215,13 @@
     top: 28px;
     left: 50%;
     transform: translateX(-50%);
-    font-size: 9px;
+    font-size: 7px;
     font-weight: 700;
     color: var(--ink);
     background: rgba(243,236,216,0.92);
     border: 1px solid rgba(43,36,22,0.35);
-    border-radius: 6px;
-    padding: 1px 5px;
+    border-radius: 4px;
+    padding: 1px 3px;
     white-space: nowrap;
     pointer-events: none;
     font-family: 'Inter', sans-serif;

@@ -1382,6 +1382,13 @@ function resetForm() {
 
 cancelBtn.addEventListener('click', resetForm);
 
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && pendingClick) {
+    event.preventDefault();
+    resetForm();
+  }
+});
+
 // Refresh freshness visuals every minute, and poll Supabase every 20s for sightings from other browsers.
 configureHandleField();
 loadSightings();

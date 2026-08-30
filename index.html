@@ -895,10 +895,37 @@ function normalizeSourceChannel(value) {
   return Object.prototype.hasOwnProperty.call(sourceIcons, value) ? value : 'other-link';
 }
 
+function parseLocalDateTime(value) {
+  const match = typeof value === 'string'
+    ? value.trim().match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/)
+    : null;
+  if (!match) return NaN;
+
+  const [, year, month, day, hour, minute, second = '0', millisecond = '0'] = match;
+  const localDate = new Date(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second),
+    Number(millisecond.padEnd(3, '0'))
+  );
+  return localDate.getTime();
+}
+
 function normalizeTimestamp(value) {
-  const numeric = Number(value);
-  if (Number.isFinite(numeric)) return numeric;
-  return Date.parse(value);
+  if (typeof value === 'number') return Number.isFinite(value) ? value : NaN;
+  if (typeof value !== 'string') return NaN;
+
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?$/.test(trimmed)) {
+    return parseLocalDateTime(trimmed);
+  }
+
+  const numeric = Number(trimmed);
+  if (trimmed && Number.isFinite(numeric)) return numeric;
+  return Date.parse(trimmed);
 }
 
 function normalizeSighting(raw) {
@@ -1196,7 +1223,11 @@ document.getElementById('submitBtn').addEventListener('click', async () => {
   let timestamp = Date.now();
   if (selectedWhen === 'specify') {
     const val = document.getElementById('timeInput').value;
-    if (val) timestamp = new Date(val).getTime();
+    timestamp = parseLocalDateTime(val);
+    if (!Number.isFinite(timestamp)) {
+      showToast('Choose a valid local date and time');
+      return;
+    }
   }
 
   const sighting = {

@@ -627,7 +627,7 @@
           <input type="url" id="photoInput" placeholder="https://instagram.com/p/..." maxlength="2048" class="text-input">
         </div>
         <div class="form-row">
-          <label class="form-label">When did you see it?</label>
+          <label class="form-label">When did you see it? (Toronto time)</label>
           <div class="time-toggle">
             <button class="time-btn active" data-when="now">Just now</button>
             <button class="time-btn" data-when="specify">Specify date/time</button>
@@ -661,6 +661,7 @@
 <script>
 const STORAGE_KEY = 'wizard-sightings-mtcc';
 const PENDING_SYNC_KEY = 'wizard-sightings-mtcc-pending-sync';
+const EVENT_TIME_ZONE = 'America/Toronto';
 const SUPABASE_URL = 'https://dfeopuoimgngeoqdaedx.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_XZ-syqyWkIPji2QrIZ3AsQ_4bnNlrZq';
 const SIGHTINGS_ENDPOINT = `${SUPABASE_URL}/rest/v1/sightings`;
@@ -895,23 +896,76 @@ function normalizeSourceChannel(value) {
   return Object.prototype.hasOwnProperty.call(sourceIcons, value) ? value : 'other-link';
 }
 
-function parseLocalDateTime(value) {
+const eventDateTimeFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: EVENT_TIME_ZONE,
+  calendar: 'gregory',
+  numberingSystem: 'latn',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23'
+});
+
+function getEventDateTimeParts(timestamp) {
+  return Object.fromEntries(
+    eventDateTimeFormatter.formatToParts(new Date(timestamp))
+      .filter(part => part.type !== 'literal')
+      .map(part => [part.type, Number(part.value)])
+  );
+}
+
+function getEventTimeZoneOffset(timestamp) {
+  const parts = getEventDateTimeParts(timestamp);
+  const representedAsUtc = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second
+  );
+  return representedAsUtc - Math.floor(timestamp / 1000) * 1000;
+}
+
+function parseEventDateTime(value) {
   const match = typeof value === 'string'
     ? value.trim().match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/)
     : null;
   if (!match) return NaN;
 
   const [, year, month, day, hour, minute, second = '0', millisecond = '0'] = match;
-  const localDate = new Date(
-    Number(year),
-    Number(month) - 1,
-    Number(day),
-    Number(hour),
-    Number(minute),
-    Number(second),
+  const expected = {
+    year: Number(year),
+    month: Number(month),
+    day: Number(day),
+    hour: Number(hour),
+    minute: Number(minute),
+    second: Number(second)
+  };
+  const wallClockAsUtc = Date.UTC(
+    expected.year,
+    expected.month - 1,
+    expected.day,
+    expected.hour,
+    expected.minute,
+    expected.second,
     Number(millisecond.padEnd(3, '0'))
   );
-  return localDate.getTime();
+
+  let timestamp = wallClockAsUtc;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const adjusted = wallClockAsUtc - getEventTimeZoneOffset(timestamp);
+    if (adjusted === timestamp) break;
+    timestamp = adjusted;
+  }
+
+  const actual = getEventDateTimeParts(timestamp);
+  const isValidEventTime = Object.entries(expected)
+    .every(([part, expectedValue]) => actual[part] === expectedValue);
+  return isValidEventTime ? timestamp : NaN;
 }
 
 function normalizeTimestamp(value) {
@@ -920,7 +974,7 @@ function normalizeTimestamp(value) {
 
   const trimmed = value.trim();
   if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?$/.test(trimmed)) {
-    return parseLocalDateTime(trimmed);
+    return parseEventDateTime(trimmed);
   }
 
   const numeric = Number(trimmed);
@@ -1223,7 +1277,7 @@ document.getElementById('submitBtn').addEventListener('click', async () => {
   let timestamp = Date.now();
   if (selectedWhen === 'specify') {
     const val = document.getElementById('timeInput').value;
-    timestamp = parseLocalDateTime(val);
+    timestamp = parseEventDateTime(val);
     if (!Number.isFinite(timestamp)) {
       showToast('Choose a valid local date and time');
       return;

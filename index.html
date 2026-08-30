@@ -708,14 +708,27 @@ function detectSourceChannel() {
   const explicitSrc = params.get('src') || params.get('utm_source');
   if (explicitSrc) return explicitSrc.toLowerCase();
 
-  const ref = document.referrer.toLowerCase();
-  if (ref.includes('reddit.com')) return 'reddit';
-  if (ref.includes('instagram.com')) return 'instagram';
-  if (ref.includes('t.co') || ref.includes('twitter.com') || ref.includes('x.com')) return 'twitter';
-  if (ref.includes('tiktok.com')) return 'tiktok';
-  if (ref.includes('facebook.com') || ref.includes('fb.com')) return 'facebook';
-  if (ref) return 'other-link';
+  const referrerHost = getReferrerHost(document.referrer);
+  if (matchesDomain(referrerHost, 'reddit.com')) return 'reddit';
+  if (matchesDomain(referrerHost, 'instagram.com')) return 'instagram';
+  if (['t.co', 'twitter.com', 'x.com'].some(domain => matchesDomain(referrerHost, domain))) return 'twitter';
+  if (matchesDomain(referrerHost, 'tiktok.com')) return 'tiktok';
+  if (['facebook.com', 'fb.com'].some(domain => matchesDomain(referrerHost, domain))) return 'facebook';
+  if (referrerHost) return 'other-link';
   return 'direct';
+}
+
+function getReferrerHost(referrer) {
+  if (!referrer) return '';
+  try {
+    return new URL(referrer).hostname.toLowerCase();
+  } catch (e) {
+    return '';
+  }
+}
+
+function matchesDomain(hostname, domain) {
+  return hostname === domain || hostname.endsWith(`.${domain}`);
 }
 
 const sourceChannel = detectSourceChannel();
@@ -743,6 +756,10 @@ function configureHandleField() {
     label.textContent = 'Instagram handle (optional)';
     input.placeholder = '@yourhandle or leave blank for Anonymous';
     photoRow.style.display = 'block';
+  } else if (sourceChannel === 'facebook') {
+    label.textContent = 'Name or handle (optional)';
+    input.placeholder = 'Leave blank for Anonymous';
+    photoRow.style.display = 'none';
   } else {
     label.textContent = 'Name or handle (optional)';
     input.placeholder = 'Leave blank for Anonymous';

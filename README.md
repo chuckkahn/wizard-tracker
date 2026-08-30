@@ -1,23 +1,25 @@
 # eBay Wizard Tracker
 
-A simple crowdsourced map for tracking eBay Wizard sightings at Fan Expo Canada in the Metro Toronto Convention Centre.
+A crowdsourced archive of eBay Wizard sightings from Fan Expo Canada 2026 in the Metro Toronto Convention Centre.
 
 Live site:  
 https://chuckkahn.github.io/wizard-tracker/
 
 ## How it works
 
-1. Select the MTCC level where you spotted a wizard.
-2. Tap the location on the floor plan.
-3. Choose the wizard colour:
+1. Select an event day to explore its sightings.
+2. Select the MTCC level where a wizard was spotted.
+3. Tap the historical location on the floor plan.
+4. Choose the wizard colour:
    - Red
    - Blue
    - Yellow
    - Green
-4. Optionally add your name or social handle.
-5. Log the sighting.
+5. Enter the Toronto date and time from Thursday, August 27 through Sunday, August 30, 2026.
+6. Optionally add your name or social handle.
+7. Add the historical sighting.
 
-Recent sightings appear on the corresponding floor plan and fade as they get older.
+Each event day has its own view. Lines connect successive sightings of the same wizard colour on the same level in chronological order.
 
 ## MTCC levels
 
@@ -36,7 +38,7 @@ Levels 300 and 800 use the Fan Expo-specific show maps. The other levels use off
 
 ## Privacy and storage
 
-Sightings are shared between visitors through Supabase. The browser also keeps a local cache and queues submissions made while cloud sync is unavailable, retrying them when the connection returns.
+Sightings are shared between visitors through Supabase. New entries are restricted to the four Fan Expo event dates. The browser also keeps a local cache and queues submissions made while cloud sync is unavailable, retrying them when the connection returns.
 
 The public browser key can read and insert sightings only; database permissions should continue to deny updates and deletes for anonymous visitors.
 

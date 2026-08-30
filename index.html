@@ -87,6 +87,48 @@
     margin-bottom: 10px;
   }
 
+  .day-filter-label {
+    margin-bottom: 7px;
+    color: var(--ink-soft);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  .day-tabs {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-bottom: 14px;
+  }
+
+  .day-btn {
+    min-width: 104px;
+    padding: 7px 11px;
+    border: 1px solid var(--gold);
+    border-radius: 20px;
+    background: transparent;
+    color: var(--ink-soft);
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    cursor: pointer;
+  }
+
+  .day-btn.active {
+    background: var(--gold);
+    color: var(--parchment);
+  }
+
+  .day-count {
+    margin-left: 3px;
+    font-family: 'Inter', sans-serif;
+    font-size: 9px;
+    opacity: 0.8;
+  }
+
   .building-tabs {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -184,6 +226,25 @@
     height: auto;
     pointer-events: none;
     user-select: none;
+  }
+
+  .timeline-layer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .timeline-line {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+    opacity: 0.72;
+    vector-effect: non-scaling-stroke;
   }
 
   .map.hidden { display: none; }
@@ -374,27 +435,6 @@
     outline: 2px solid var(--gold);
   }
 
-  .time-toggle {
-    display: flex;
-    gap: 8px;
-  }
-
-  .time-btn {
-    flex: 1;
-    padding: 8px 10px;
-    border-radius: 8px;
-    border: 1px solid rgba(184,134,46,0.5);
-    background: transparent;
-    color: #d8cba0;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .time-btn.active {
-    background: var(--gold);
-    color: var(--parchment);
-  }
-
   .submit-btn {
     width: 100%;
     margin-top: 18px;
@@ -559,11 +599,18 @@
   <header>
     <div class="eyebrow">Fly, You Fans</div>
     <h1>eBay Wizard Tracker</h1>
-    <p>Tap the map where you spotted a wizard. Sightings fade as they get stale.</p>
+    <p>Explore the four-day Fan Expo 2026 wizard hunt, or add a historical sighting from the event.</p>
   </header>
 
   <div class="board">
     <div class="map-title">Metro Toronto Convention Centre — Official Floor Plan</div>
+    <div class="day-filter-label">Sightings by day</div>
+    <div class="day-tabs" id="dayTabs" role="tablist" aria-label="Fan Expo event day">
+      <button class="day-btn" type="button" data-day="2026-08-27" role="tab">Thursday <span class="day-count">0</span></button>
+      <button class="day-btn" type="button" data-day="2026-08-28" role="tab">Friday <span class="day-count">0</span></button>
+      <button class="day-btn" type="button" data-day="2026-08-29" role="tab">Saturday <span class="day-count">0</span></button>
+      <button class="day-btn" type="button" data-day="2026-08-30" role="tab">Sunday <span class="day-count">0</span></button>
+    </div>
     <div class="building-tabs">
       <div class="building-group">
         <div class="building-heading">
@@ -633,7 +680,7 @@
   </div>
 
   <div class="controls">
-    <div id="prompt">Tap anywhere on the map to log a sighting</div>
+    <div id="prompt">Tap anywhere on the map to add a historical sighting</div>
     <div class="coordinate-confirmation" id="coordinateConfirmation" role="status" aria-live="polite"></div>
     <div class="picker" id="picker">
       <div class="form-panel">
@@ -656,14 +703,10 @@
         </div>
         <div class="form-row">
           <label class="form-label">When did you see it? (Toronto time)</label>
-          <div class="time-toggle">
-            <button class="time-btn active" data-when="now">Just now</button>
-            <button class="time-btn" data-when="specify">Specify date/time</button>
-          </div>
-          <input type="datetime-local" id="timeInput" class="text-input" style="display:none; margin-top:8px;"
-                 min="2026-08-27T09:00" max="2026-08-30T20:00">
+          <input type="datetime-local" id="timeInput" class="text-input" required
+                 min="2026-08-27T00:00" max="2026-08-30T23:59">
         </div>
-        <button class="submit-btn" id="submitBtn" disabled>Log Sighting</button>
+        <button class="submit-btn" id="submitBtn" disabled>Add Historical Sighting</button>
       </div>
     </div>
     <div style="text-align:center;">
@@ -672,14 +715,14 @@
   </div>
 
   <div class="sightings">
-    <h2>Recent Sightings</h2>
+    <h2 id="sightingsTitle">Sightings</h2>
     <div class="sighting-list" id="sightingList">
       <div class="empty-msg">Loading sightings...</div>
     </div>
   </div>
 
   <footer>
-    Crowdsourced by fans, not affiliated with eBay. Sightings sync across browsers with an offline fallback.
+    A crowdsourced archive by fans, not affiliated with eBay. Historical sightings sync across browsers with an offline fallback.
     <span id="syncStatus">Connecting…</span>
   </footer>
 </div>
@@ -690,6 +733,13 @@
 const STORAGE_KEY = 'wizard-sightings-mtcc';
 const PENDING_SYNC_KEY = 'wizard-sightings-mtcc-pending-sync';
 const EVENT_TIME_ZONE = 'America/Toronto';
+const EVENT_DAYS = [
+  { date: '2026-08-27', label: 'Thursday' },
+  { date: '2026-08-28', label: 'Friday' },
+  { date: '2026-08-29', label: 'Saturday' },
+  { date: '2026-08-30', label: 'Sunday' }
+];
+const EVENT_DAY_KEYS = new Set(EVENT_DAYS.map(day => day.date));
 const SUPABASE_URL = 'https://dfeopuoimgngeoqdaedx.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_XZ-syqyWkIPji2QrIZ3AsQ_4bnNlrZq';
 const SIGHTINGS_ENDPOINT = `${SUPABASE_URL}/rest/v1/sightings`;
@@ -770,8 +820,8 @@ function configureHandleField() {
 let pendingClick = null;
 let sightings = [];
 let activeLevel = '200';
+let activeDay = null;
 let selectedColor = null;
-let selectedWhen = 'now';
 
 const buildingsByLevel = {
   '100': 'North Building',
@@ -800,6 +850,8 @@ const toast = document.getElementById('toast');
 const syncStatus = document.getElementById('syncStatus');
 const coordinateConfirmation = document.getElementById('coordinateConfirmation');
 const tabBtns = document.querySelectorAll('.tab-btn');
+const dayBtns = document.querySelectorAll('.day-btn');
+const sightingsTitle = document.getElementById('sightingsTitle');
 let loadInFlight = false;
 let coordinateConfirmationTimer = null;
 let coordinateCopyVersion = 0;
@@ -1042,6 +1094,30 @@ function normalizeTimestamp(value) {
   return Date.parse(trimmed);
 }
 
+function getEventDayKey(timestamp) {
+  const parts = getEventDateTimeParts(timestamp);
+  return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
+}
+
+function getDayConfig(dayKey) {
+  return EVENT_DAYS.find(day => day.date === dayKey);
+}
+
+function isEventTimestamp(timestamp) {
+  return Number.isFinite(timestamp) && EVENT_DAY_KEYS.has(getEventDayKey(timestamp));
+}
+
+function ensureActiveDay() {
+  if (activeDay && EVENT_DAY_KEYS.has(activeDay)) return;
+  activeDay = [...EVENT_DAYS].reverse().find(day =>
+    sightings.some(sighting => getEventDayKey(sighting.timestamp) === day.date)
+  )?.date || EVENT_DAYS[0].date;
+}
+
+function getActiveDaySightings() {
+  return sightings.filter(sighting => getEventDayKey(sighting.timestamp) === activeDay);
+}
+
 function normalizeSighting(raw) {
   if (!raw || typeof raw !== 'object') return null;
   if (NON_SIGHTING_IDS.has(String(raw.id || ''))) return null;
@@ -1140,17 +1216,54 @@ async function uploadSightings(values) {
 }
 
 async function flushPendingSightings() {
-  const pending = dedupeSightings(readStoredSightings(PENDING_SYNC_KEY));
-  if (pending.length === 0) return;
+  const queued = dedupeSightings(readStoredSightings(PENDING_SYNC_KEY));
+  const pending = queued.filter(sighting => isEventTimestamp(sighting.timestamp));
+  if (pending.length === 0) {
+    if (queued.length > 0) writeStoredSightings(PENDING_SYNC_KEY, []);
+    return;
+  }
   await uploadSightings(pending);
   writeStoredSightings(PENDING_SYNC_KEY, []);
+}
+
+function renderTimelineRoutes(daySightings) {
+  const routes = new Map();
+  [...daySightings].sort((a, b) => a.timestamp - b.timestamp).forEach(sighting => {
+    const level = getSightingLevel(sighting);
+    const key = `${level}:${sighting.color}`;
+    if (!routes.has(key)) routes.set(key, []);
+    routes.get(key).push(sighting);
+  });
+
+  routes.forEach(route => {
+    if (route.length < 2) return;
+    const level = getSightingLevel(route[0]);
+    const stage = maps[level].querySelector('.floorplan-stage');
+    let layer = stage.querySelector('.timeline-layer');
+    if (!layer) {
+      layer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      layer.classList.add('timeline-layer');
+      layer.setAttribute('viewBox', '0 0 100 100');
+      layer.setAttribute('preserveAspectRatio', 'none');
+      layer.setAttribute('aria-hidden', 'true');
+      stage.appendChild(layer);
+    }
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    line.classList.add('timeline-line');
+    line.setAttribute('points', route.map(sighting => `${sighting.xPct},${sighting.yPct}`).join(' '));
+    line.setAttribute('stroke', colors[route[0].color]);
+    layer.appendChild(line);
+  });
 }
 
 function renderPins() {
   Object.values(maps).forEach(m => {
     m.querySelectorAll('.pin').forEach(p => p.remove());
+    m.querySelectorAll('.timeline-layer').forEach(layer => layer.remove());
   });
-  sightings.forEach(s => {
+  const daySightings = getActiveDaySightings();
+  renderTimelineRoutes(daySightings);
+  daySightings.forEach(s => {
     const targetMap = maps[getSightingLevel(s)];
     const targetStage = targetMap.querySelector('.floorplan-stage');
     const pin = document.createElement('div');
@@ -1185,11 +1298,13 @@ function escapeHtml(value) {
 }
 
 function renderList() {
-  if (sightings.length === 0) {
-    sightingList.innerHTML = '<div class="empty-msg">No sightings yet — be the first to spot one!</div>';
+  const daySightings = getActiveDaySightings();
+  const day = getDayConfig(activeDay);
+  if (daySightings.length === 0) {
+    sightingList.innerHTML = `<div class="empty-msg">No ${day.label} sightings were recorded.</div>`;
     return;
   }
-  const sorted = [...sightings].sort((a, b) => b.timestamp - a.timestamp);
+  const sorted = [...daySightings].sort((a, b) => b.timestamp - a.timestamp);
   sightingList.innerHTML = sorted.slice(0, 30).map(s => {
     const level = getSightingLevel(s);
     const building = getSightingBuilding(s, level);
@@ -1217,7 +1332,20 @@ function renderList() {
   }).join('');
 }
 
+function renderDayButtons() {
+  dayBtns.forEach(btn => {
+    const isActive = btn.dataset.day === activeDay;
+    const count = sightings.filter(sighting => getEventDayKey(sighting.timestamp) === btn.dataset.day).length;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-selected', String(isActive));
+    btn.querySelector('.day-count').textContent = count;
+  });
+  sightingsTitle.textContent = `${getDayConfig(activeDay).label} Sightings`;
+}
+
 function renderAll() {
+  ensureActiveDay();
+  renderDayButtons();
   renderPins();
   renderList();
 }
@@ -1283,6 +1411,13 @@ tabBtns.forEach(btn => {
   btn.addEventListener('click', () => selectLevel(btn.dataset.level));
 });
 
+dayBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    activeDay = btn.dataset.day;
+    renderAll();
+  });
+});
+
 sightingList.addEventListener('click', (event) => {
   const mapLink = event.target.closest('.sighting-map-link');
   if (mapLink) selectLevel(mapLink.dataset.level, true);
@@ -1313,25 +1448,13 @@ picker.addEventListener('click', (e) => {
     selectedColor = colorBtn.dataset.color;
     updateSubmitState();
   }
-  const timeBtn = e.target.closest('.time-btn');
-  if (timeBtn) {
-    document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
-    timeBtn.classList.add('active');
-    selectedWhen = timeBtn.dataset.when;
-    document.getElementById('timeInput').style.display = selectedWhen === 'specify' ? 'block' : 'none';
-    updateSubmitState();
-  }
 });
 
 document.getElementById('timeInput').addEventListener('input', updateSubmitState);
 
 function updateSubmitState() {
   const submitBtn = document.getElementById('submitBtn');
-  let ok = !!selectedColor;
-  if (selectedWhen === 'specify') {
-    ok = ok && !!document.getElementById('timeInput').value;
-  }
-  submitBtn.disabled = !ok;
+  submitBtn.disabled = !(selectedColor && document.getElementById('timeInput').value);
 }
 
 document.getElementById('submitBtn').addEventListener('click', async () => {
@@ -1345,14 +1468,10 @@ document.getElementById('submitBtn').addEventListener('click', async () => {
     : sourceChannel === 'instagram' ? 'instagram'
     : null;
 
-  let timestamp = Date.now();
-  if (selectedWhen === 'specify') {
-    const val = document.getElementById('timeInput').value;
-    timestamp = parseEventDateTime(val);
-    if (!Number.isFinite(timestamp)) {
-      showToast('Choose a valid local date and time');
-      return;
-    }
+  const timestamp = parseEventDateTime(document.getElementById('timeInput').value);
+  if (!isEventTimestamp(timestamp)) {
+    showToast('Choose a Fan Expo date and time from Aug. 27–30');
+    return;
   }
 
   const sighting = {
@@ -1370,6 +1489,7 @@ document.getElementById('submitBtn').addEventListener('click', async () => {
     sourceChannel
   };
   sightings.push(sighting);
+  activeDay = getEventDayKey(timestamp);
   renderAll();
   const savedToCloud = await saveSightings(sighting);
   showToast(savedToCloud
@@ -1381,16 +1501,12 @@ document.getElementById('submitBtn').addEventListener('click', async () => {
 function resetForm() {
   picker.classList.remove('active');
   cancelBtn.style.display = 'none';
-  prompt.textContent = 'Tap anywhere on the map to log a sighting';
+  prompt.textContent = 'Tap anywhere on the map to add a historical sighting';
   pendingClick = null;
   renderPreview();
   hideCoordinateConfirmation();
   selectedColor = null;
-  selectedWhen = 'now';
   document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
-  document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
-  document.querySelector('.time-btn[data-when="now"]').classList.add('active');
-  document.getElementById('timeInput').style.display = 'none';
   document.getElementById('timeInput').value = '';
   document.getElementById('handleInput').value = '';
   document.getElementById('photoInput').value = '';

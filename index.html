@@ -474,6 +474,34 @@
   .sighting-row .time {
     font-size: 11px;
     color: #b9a97a;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .sighting-map-link {
+    appearance: none;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-weight: inherit;
+    text-decoration: underline;
+    text-decoration-color: rgba(216,203,160,0.55);
+    text-underline-offset: 2px;
+    cursor: pointer;
+  }
+
+  .sighting-map-link:hover,
+  .sighting-map-link:focus-visible {
+    color: #fff4ce;
+    text-decoration-color: currentColor;
+  }
+
+  .sighting-map-link:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 3px;
+    border-radius: 2px;
   }
 
   .empty-msg {
@@ -782,15 +810,14 @@ function freshnessOpacity(timestamp) {
   return 1 - t * 0.75;
 }
 
-function timeAgo(timestamp) {
-  const diffMs = Date.now() - timestamp;
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  return `${days}d ago`;
+function formatSightingTime(timestamp, shortWeekday = false) {
+  const parts = Object.fromEntries(
+    (shortWeekday ? shortEventTimeFormatter : eventTimeFormatter)
+      .formatToParts(new Date(timestamp))
+      .filter(part => part.type !== 'literal')
+      .map(part => [part.type, part.value])
+  );
+  return `${parts.weekday} ${parts.hour}:${parts.minute}${parts.dayPeriod.toLowerCase()}`;
 }
 
 function showCoordinateConfirmation(message) {
@@ -907,6 +934,22 @@ const eventDateTimeFormatter = new Intl.DateTimeFormat('en-CA', {
   minute: '2-digit',
   second: '2-digit',
   hourCycle: 'h23'
+});
+
+const eventTimeFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: EVENT_TIME_ZONE,
+  weekday: 'long',
+  hour: 'numeric',
+  minute: '2-digit',
+  hour12: true
+});
+
+const shortEventTimeFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: EVENT_TIME_ZONE,
+  weekday: 'short',
+  hour: 'numeric',
+  minute: '2-digit',
+  hour12: true
 });
 
 function getEventDateTimeParts(timestamp) {
@@ -1098,8 +1141,8 @@ function renderPins() {
     pin.style.left = s.xPct + '%';
     pin.style.top = s.yPct + '%';
     pin.style.opacity = freshnessOpacity(s.timestamp);
-    pin.innerHTML = `<div class="pin-hat">${wizardHatSVG(colors[s.color])}</div><div class="pin-time">${timeAgo(s.timestamp)}</div>`;
-    pin.title = `${s.color} wizard — ${timeAgo(s.timestamp)}${s.handle ? ' — @' + s.handle : ' — Anonymous'}`;
+    pin.innerHTML = `<div class="pin-hat">${wizardHatSVG(colors[s.color])}</div><div class="pin-time">${formatSightingTime(s.timestamp, true)}</div>`;
+    pin.title = `${s.color} wizard — ${formatSightingTime(s.timestamp)}${s.handle ? ' — @' + s.handle : ' — Anonymous'}`;
     targetStage.appendChild(pin);
   });
 }
@@ -1150,8 +1193,8 @@ function renderList() {
     return `
     <div class="sighting-row" style="opacity:${Math.max(freshnessOpacity(s.timestamp), 0.5)}">
       <span class="dot" style="background:${colors[s.color]}"></span>
-      <span class="loc">${s.color[0].toUpperCase()+s.color.slice(1)} wizard — Level ${level}, ${building}<br><span style="font-weight:400; font-size:11px; color:#b9a97a;">reported by ${attribution}${photoLink}${sourceBadge}</span></span>
-      <span class="time">${timeAgo(s.timestamp)}</span>
+      <span class="loc">${s.color[0].toUpperCase()+s.color.slice(1)} wizard — <button type="button" class="sighting-map-link" data-level="${level}" aria-label="Show Level ${level}, ${building} map">Level ${level}, ${building}</button><br><span style="font-weight:400; font-size:11px; color:#b9a97a;">reported by ${attribution}${photoLink}${sourceBadge}</span></span>
+      <span class="time">${formatSightingTime(s.timestamp)}</span>
     </div>
   `;
   }).join('');
@@ -1206,15 +1249,26 @@ async function saveSightings(newSighting) {
   }
 }
 
-tabBtns.forEach(btn => {
-  btn.addEventListener('click', () => {
-    tabBtns.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    activeLevel = btn.dataset.level;
-    Object.entries(maps).forEach(([level, el]) => {
-      el.classList.toggle('hidden', level !== activeLevel);
-    });
+function selectLevel(level, revealMap = false) {
+  if (!maps[level]) return;
+  activeLevel = level;
+  tabBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.level === level));
+  Object.entries(maps).forEach(([mapLevel, el]) => {
+    el.classList.toggle('hidden', mapLevel !== level);
   });
+
+  if (revealMap) {
+    maps[level].scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+tabBtns.forEach(btn => {
+  btn.addEventListener('click', () => selectLevel(btn.dataset.level));
+});
+
+sightingList.addEventListener('click', (event) => {
+  const mapLink = event.target.closest('.sighting-map-link');
+  if (mapLink) selectLevel(mapLink.dataset.level, true);
 });
 
 Object.entries(maps).forEach(([level, mapEl]) => {

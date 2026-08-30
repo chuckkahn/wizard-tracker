@@ -504,6 +504,20 @@
     transform: translateX(-50%) translateY(0);
   }
 
+  .coordinate-confirmation {
+    min-height: 18px;
+    margin-top: 5px;
+    color: #6f6037;
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    user-select: text;
+  }
+
+  .coordinate-confirmation.show { opacity: 1; }
+
   footer {
     text-align: center;
     color: #8c7f5a;
@@ -592,6 +606,7 @@
 
   <div class="controls">
     <div id="prompt">Tap anywhere on the map to log a sighting</div>
+    <div class="coordinate-confirmation" id="coordinateConfirmation" role="status" aria-live="polite"></div>
     <div class="picker" id="picker">
       <div class="form-panel">
         <div class="form-row">
@@ -737,8 +752,11 @@ const cancelBtn = document.getElementById('cancelBtn');
 const sightingList = document.getElementById('sightingList');
 const toast = document.getElementById('toast');
 const syncStatus = document.getElementById('syncStatus');
+const coordinateConfirmation = document.getElementById('coordinateConfirmation');
 const tabBtns = document.querySelectorAll('.tab-btn');
 let loadInFlight = false;
+let coordinateConfirmationTimer = null;
+let coordinateCopyVersion = 0;
 
 function showToast(msg) {
   toast.textContent = msg;
@@ -772,6 +790,46 @@ function timeAgo(timestamp) {
   if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
   return `${days}d ago`;
+}
+
+function showCoordinateConfirmation(message) {
+  clearTimeout(coordinateConfirmationTimer);
+  coordinateConfirmation.textContent = message;
+  coordinateConfirmation.classList.add('show');
+  coordinateConfirmationTimer = setTimeout(() => {
+    coordinateConfirmation.classList.remove('show');
+  }, 3500);
+}
+
+function hideCoordinateConfirmation() {
+  coordinateCopyVersion += 1;
+  clearTimeout(coordinateConfirmationTimer);
+  coordinateConfirmation.classList.remove('show');
+  coordinateConfirmation.textContent = '';
+}
+
+function copySelectedCoordinates(selection) {
+  const version = ++coordinateCopyVersion;
+  const xText = selection.xPct.toFixed(3);
+  const yText = selection.yPct.toFixed(3);
+  const clipboardText = `Level ${selection.level} | x_pct ${xText} | y_pct ${yText}`;
+  const displayText = `Level ${selection.level} · ${xText}, ${yText}`;
+
+  if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') {
+    showCoordinateConfirmation(`Coordinates selected: ${displayText}`);
+    return;
+  }
+
+  showCoordinateConfirmation(`Coordinates selected: ${displayText}`);
+  navigator.clipboard.writeText(clipboardText).then(() => {
+    if (version === coordinateCopyVersion) {
+      showCoordinateConfirmation(`Coordinates copied: ${displayText}`);
+    }
+  }).catch(() => {
+    if (version === coordinateCopyVersion) {
+      showCoordinateConfirmation(`Copy unavailable — coordinates: ${displayText}`);
+    }
+  });
 }
 
 function setSyncStatus(online) {
@@ -1083,11 +1141,12 @@ Object.entries(maps).forEach(([level, mapEl]) => {
   stage.addEventListener('click', (e) => {
     const image = stage.querySelector('img.floorplan');
     const rect = image.getBoundingClientRect();
-    const xPct = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-    const yPct = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+    const xPct = Number(Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)).toFixed(3));
+    const yPct = Number(Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100)).toFixed(3));
     const building = mapEl.dataset.building;
     pendingClick = { xPct, yPct, level, building, hall: building };
     renderPreview();
+    copySelectedCoordinates(pendingClick);
     picker.classList.add('active');
     cancelBtn.style.display = 'inline-block';
     prompt.textContent = `Point selected on Level ${level}. Tap the map again to adjust it.`;
@@ -1169,6 +1228,7 @@ function resetForm() {
   prompt.textContent = 'Tap anywhere on the map to log a sighting';
   pendingClick = null;
   renderPreview();
+  hideCoordinateConfirmation();
   selectedColor = null;
   selectedWhen = 'now';
   document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));

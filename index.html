@@ -255,7 +255,6 @@
     height: 36px;
     transform: translate(-50%, -50%);
     cursor: pointer;
-    transition: opacity 0.4s ease;
     z-index: 2;
   }
 
@@ -869,16 +868,6 @@ function wizardHatSVG(color) {
   </svg>`;
 }
 
-function freshnessOpacity(timestamp) {
-  const ageMs = Date.now() - timestamp;
-  const ageHours = ageMs / (1000 * 60 * 60);
-  // full opacity for first 30 min, fades to 0.25 min opacity by 6 hours
-  if (ageHours < 0.5) return 1;
-  if (ageHours > 6) return 0.25;
-  const t = (ageHours - 0.5) / 5.5;
-  return 1 - t * 0.75;
-}
-
 function formatSightingTime(timestamp, shortWeekday = false) {
   const parts = Object.fromEntries(
     (shortWeekday ? shortEventTimeFormatter : eventTimeFormatter)
@@ -1270,7 +1259,6 @@ function renderPins() {
     pin.className = 'pin';
     pin.style.left = s.xPct + '%';
     pin.style.top = s.yPct + '%';
-    pin.style.opacity = freshnessOpacity(s.timestamp);
     pin.innerHTML = `<div class="pin-hat">${wizardHatSVG(colors[s.color])}</div><div class="pin-time">${formatSightingTime(s.timestamp, true)}</div>`;
     pin.title = `${s.color} wizard — ${formatSightingTime(s.timestamp)}${s.handle ? ' — @' + s.handle : ' — Anonymous'}`;
     targetStage.appendChild(pin);
@@ -1323,7 +1311,7 @@ function renderList() {
       ? ` <span title="Arrived via ${s.sourceChannel}">${sourceIcons[s.sourceChannel] || '🔗'}</span>`
       : '';
     return `
-    <div class="sighting-row" style="opacity:${Math.max(freshnessOpacity(s.timestamp), 0.5)}">
+    <div class="sighting-row">
       <span class="dot" style="background:${colors[s.color]}"></span>
       <span class="loc">${s.color[0].toUpperCase()+s.color.slice(1)} wizard — <button type="button" class="sighting-map-link" data-level="${level}" aria-label="Show Level ${level}, ${building} map">Level ${level}, ${building}</button><br><span style="font-weight:400; font-size:11px; color:#b9a97a;">reported by ${attribution}${photoLink}${sourceBadge}</span></span>
       <span class="time">${formatSightingTime(s.timestamp)}</span>
@@ -1522,10 +1510,9 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
-// Refresh freshness visuals every minute, and poll Supabase every 20s for sightings from other browsers.
+// Poll Supabase every 20s for historical sightings from other browsers.
 configureHandleField();
 loadSightings();
-setInterval(renderAll, 60000);
 setInterval(loadSightings, 20000);
 </script>
 </body>
